@@ -39,45 +39,50 @@ def intersect_sphere(ray_origin, ray_dir, center, radius):
 
     return t
 
+        
+# تابع رندر
+def render(samples_per_pixel):
+    image = np.zeros((height, width, 3))
+    camera_origin = np.array([0, 0, 0])  # Moved inside the function
+
+    for y in range(height):
+        for x in range(width):
+
+            color = np.zeros(3)
+
+            for s in range(samples_per_pixel):
+                px = (2 * (x + np.random.rand()) / width - 1)
+                py = (1 - 2 * (y + np.random.rand()) / height)
+
+                ray_dir = np.array([px, py, -1])
+                ray_dir = ray_dir / np.linalg.norm(ray_dir)
+
+                t = intersect_sphere(camera_origin, ray_dir,
+                                     sphere_center, sphere_radius)
+
+                if t is not None:
+                    hit = camera_origin + t * ray_dir
+                    normal = hit - sphere_center
+                    normal = normal / np.linalg.norm(normal)
+                    intensity = max(np.dot(normal, light_dir), 0)
+                    sample_color = intensity * sphere_color
+                else:
+                    sample_color = np.array([0.1, 0.1, 0.1])
+
+                color += sample_color
+
+            image[y, x] = color / samples_per_pixel
+
+    return image
+
+
 # ----------------------------
-# رندر
+# Main execution (only runs when file is executed directly)
 # ----------------------------
-image = np.zeros((height, width, 3))
+if __name__ == "__main__":
+    image = render(samples_per_pixel=1)
 
-camera_origin = np.array([0, 0, 0])
-
-for y in range(height):
-    for x in range(width):
-
-        # مختصات نرمال‌شده پیکسل
-        px = (2 * (x + 0.5) / width - 1)
-        py = (1 - 2 * (y + 0.5) / height)
-
-        ray_dir = np.array([px, py, -1])
-        ray_dir = ray_dir / np.linalg.norm(ray_dir)
-
-        t = intersect_sphere(camera_origin, ray_dir,
-                             sphere_center, sphere_radius)
-
-        if t is not None:
-            hit_point = camera_origin + t * ray_dir
-            normal = hit_point - sphere_center
-            normal = normal / np.linalg.norm(normal)
-
-            # نور diffuse
-            noise = np.random.rand() * 0.5
-            intensity = max(np.dot(normal, light_dir), 0) * (1 + noise)
-
-            color = intensity * sphere_color
-        else:
-            color = np.array([0.1, 0.1, 0.1])  # پس‌زمینه
-
-        image[y, x] = color
-
-# ----------------------------
-# نمایش تصویر
-# ----------------------------
-plt.imshow(np.clip(image, 0, 1))
-plt.axis("off")
-plt.title("Simple Ray Traced Sphere")
-plt.show()
+    plt.imshow(np.clip(image, 0, 1))
+    plt.axis("off")
+    plt.title("Simple Ray Traced Sphere (Noisy)")
+    plt.show()
