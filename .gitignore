@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+.env/
+
+# Data / outputs
+data/
+datasets/
+outputs/
+renders/
+*.png
+*.jpg
+
+# Models
+*.pt
+*.pth
+*.onnx
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS / IDE
+.vscode/
+.DS_Store
+Thumbs.db
+
