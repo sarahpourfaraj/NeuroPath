@@ -4,9 +4,7 @@ WIDTH = 200
 HEIGHT = 200
 EPS = 1e-4
 
-# =========================
 # Geometry
-# =========================
 class Sphere:
     def __init__(self, center, radius, color):
         self.center = np.array(center, dtype=np.float32)
@@ -26,10 +24,7 @@ class Sphere:
             return None
         return t
 
-
-# =========================
 # Scene
-# =========================
 def random_scene():
     spheres = []
     num_spheres = np.random.randint(1, 4)
@@ -48,9 +43,7 @@ def random_scene():
     return spheres, env_light
 
 
-# =========================
 # Helpers
-# =========================
 def intersect_scene(ray_origin, ray_dir, spheres):
     hit_t = np.inf
     hit_obj = None
@@ -85,9 +78,7 @@ def random_hemisphere(normal):
     return local[0]*u + local[1]*v + local[2]*w
 
 
-# =========================
 # Radiance (Monte Carlo)
-# =========================
 def radiance(ray_origin, ray_dir, depth, spheres, env_light):
     if depth == 0:
         return np.zeros(3)
@@ -107,10 +98,7 @@ def radiance(ray_origin, ray_dir, depth, spheres, env_light):
         new_origin, new_dir, depth - 1, spheres, env_light
     )
 
-
-# =========================
 # Render with AOVs
-# =========================
 def render_with_scene(
     spheres, env_light,
     samples_per_pixel=1,
