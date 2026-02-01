@@ -45,14 +45,14 @@ class DenoisingDataset(Dataset):
     def __getitem__(self, idx):
         name = self.filenames[idx]
 
-        # ---- noisy color (always included)
+        #noisy color
         noisy_color = self.load_image(
             os.path.join(self.noisy_color_dir, name)
         )
 
         inputs = [noisy_color]
 
-        # ---- optional AOVs (noisy only)
+        #optional AOVs
         if self.use_albedo:
             albedo = self.load_image(
                 os.path.join(self.noisy_albedo_dir, name)
@@ -71,10 +71,10 @@ class DenoisingDataset(Dataset):
             )
             inputs.append(depth)
 
-        # ---- stack input channels
+        #stack input channels
         x = torch.cat(inputs, dim=0)
 
-        # ---- ground truth (clean color only)
+        #ground truth
         y = self.load_image(
             os.path.join(self.clean_color_dir, name)
         )
