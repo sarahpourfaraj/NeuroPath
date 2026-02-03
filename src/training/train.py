@@ -1,10 +1,14 @@
 import os
 import sys
+import json
 import torch
 from torch.utils.data import DataLoader, random_split
 
 SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+CKPT_DIR = os.path.join(PROJECT_DIR, "checkpoints")
+
+os.makedirs(CKPT_DIR, exist_ok=True)
 
 if SRC_DIR not in sys.path:
     sys.path.append(SRC_DIR)
@@ -28,8 +32,18 @@ def main():
     # 90% train / 10% val
     val_size = max(1, int(0.1 * len(dataset)))
     train_size = len(dataset) - val_size
-    train_ds, val_ds = random_split(dataset, [train_size, val_size])
+    train_ds, val_ds = random_split(
+        dataset,
+        [train_size, val_size],
+        generator=torch.Generator().manual_seed(42)  # reproducible split
+    )
 
+    val_idx_path = os.path.join(CKPT_DIR, "val_indices.json")
+    with open(val_idx_path, "w") as f:
+        json.dump(val_ds.indices, f)
+
+    print(f"Saved {len(val_ds)} validation indices to {val_idx_path}")
+    
     train_loader = DataLoader(
         train_ds,
         batch_size=2,
@@ -50,9 +64,6 @@ def main():
     model = UNet(in_channels=10, out_channels=3).to(device)
     criterion = DenoisingLoss(ssim_weight=0.1)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-
-    ckpt_dir = os.path.join(PROJECT_DIR, "checkpoints")
-    os.makedirs(ckpt_dir, exist_ok=True)
 
     best_val = float("inf")
     num_epochs = 30
@@ -100,10 +111,8 @@ def main():
         #save best model
         if val_loss < best_val:
             best_val = val_loss
-            torch.save(
-                model.state_dict(),
-                os.path.join(ckpt_dir, "unet_aovs_best.pth")
-            )
+            ckpt_path = os.path.join(CKPT_DIR, "unet_aovs_best.pth")
+            torch.save(model.state_dict(), ckpt_path)
             print("Best model saved")
 
     print("Training finished.")
