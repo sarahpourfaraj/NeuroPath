@@ -4,6 +4,8 @@ import torch
 from torch.utils.data import DataLoader, random_split
 
 SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+
 if SRC_DIR not in sys.path:
     sys.path.append(SRC_DIR)
 
@@ -11,29 +13,28 @@ from datasets.denoising_dataset import DenoisingDataset
 from models.unet import UNet
 from utils.losses import DenoisingLoss
 
+
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("Using device:", device)
 
-    #dataset
     dataset = DenoisingDataset(
-        root_dir=os.path.join(os.path.dirname(__file__), "../../data"),
+        root_dir=os.path.join(PROJECT_DIR, "data"),
         use_albedo=True,
         use_normal=True,
         use_depth=True
     )
 
-    #Split: 90% train / 10% val
+    # 90% train / 10% val
     val_size = max(1, int(0.1 * len(dataset)))
     train_size = len(dataset) - val_size
     train_ds, val_ds = random_split(dataset, [train_size, val_size])
 
-    #dataloaders
     train_loader = DataLoader(
         train_ds,
         batch_size=2,
         shuffle=True,
-        num_workers=0,      #critical for windows!
+        num_workers=0,   # Windows-safe
         pin_memory=False
     )
 
@@ -50,12 +51,15 @@ def main():
     criterion = DenoisingLoss(ssim_weight=0.1)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-    #training
-    num_epochs = 30
-    best_val = float("inf")
+    ckpt_dir = os.path.join(PROJECT_DIR, "checkpoints")
+    os.makedirs(ckpt_dir, exist_ok=True)
 
+    best_val = float("inf")
+    num_epochs = 30
+
+    # Training loop
     for epoch in range(num_epochs):
-        #Train
+        #train
         model.train()
         train_loss = 0.0
 
@@ -74,7 +78,7 @@ def main():
 
         train_loss /= len(train_loader)
 
-        #Validation
+        #validation
         model.eval()
         val_loss = 0.0
 
@@ -93,15 +97,18 @@ def main():
             f"Val: {val_loss:.4f}"
         )
 
-        #save the best model
+        #save best model
         if val_loss < best_val:
             best_val = val_loss
-            torch.save(model.state_dict(), "best_model.pth")
+            torch.save(
+                model.state_dict(),
+                os.path.join(ckpt_dir, "unet_aovs_best.pth")
+            )
             print("Best model saved")
 
     print("Training finished.")
 
 
-#Entry point (CRITICAL on Windows)
+#entry point
 if __name__ == "__main__":
     main()
