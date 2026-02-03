@@ -13,12 +13,6 @@ class DenoisingDataset(Dataset):
         use_normal=True,
         use_depth=True
     ):
-        """
-        Args:
-            root_dir (str): path to data/
-            use_* (bool): which AOVs to include as input
-        """
-
         self.root = root_dir
 
         self.use_albedo = use_albedo
@@ -37,46 +31,52 @@ class DenoisingDataset(Dataset):
     def __len__(self):
         return len(self.filenames)
 
-    def load_image(self, path):
+    def load_rgb(self, path):
         img = imageio.imread(path).astype(np.float32) / 255.0
-        img = torch.from_numpy(img).permute(2, 0, 1)  # C,H,W
-        return img
+        return torch.from_numpy(img).permute(2, 0, 1)  # (3,H,W)
+
+    def load_depth(self, path):
+        img = imageio.imread(path).astype(np.float32) / 255.0
+        img = img[..., 0]
+        return torch.from_numpy(img).unsqueeze(0)  # (1,H,W)
 
     def __getitem__(self, idx):
         name = self.filenames[idx]
 
-        #noisy color
-        noisy_color = self.load_image(
-            os.path.join(self.noisy_color_dir, name)
+        inputs = []
+
+        # noisy color
+        inputs.append(
+            self.load_rgb(os.path.join(self.noisy_color_dir, name))
         )
 
-        inputs = [noisy_color]
-
-        #optional AOVs
         if self.use_albedo:
-            albedo = self.load_image(
-                os.path.join(self.noisy_albedo_dir, name)
+            inputs.append(
+                self.load_rgb(os.path.join(self.noisy_albedo_dir, name))
             )
-            inputs.append(albedo)
 
         if self.use_normal:
-            normal = self.load_image(
-                os.path.join(self.noisy_normal_dir, name)
+            inputs.append(
+                self.load_rgb(os.path.join(self.noisy_normal_dir, name))
             )
-            inputs.append(normal)
 
         if self.use_depth:
-            depth = self.load_image(
-                os.path.join(self.noisy_depth_dir, name)
+            inputs.append(
+                self.load_depth(os.path.join(self.noisy_depth_dir, name))
             )
-            inputs.append(depth)
 
-        #stack input channels
-        x = torch.cat(inputs, dim=0)
+        x = torch.cat(inputs, dim=0)   # (10,H,W)
 
-        #ground truth
-        y = self.load_image(
+        y = self.load_rgb(
             os.path.join(self.clean_color_dir, name)
         )
 
         return x, y
+    
+#to test    
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.join(BASE_DIR, "../../data")
+
+dataset = DenoisingDataset(ROOT_DIR)
+x, y = dataset[0]
+print(x.shape, y.shape)

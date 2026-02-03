@@ -18,7 +18,7 @@ class DoubleConv(nn.Module):
 
 # UNet
 class UNet(nn.Module):
-    def __init__(self, in_channels=12, out_channels=3):
+    def __init__(self, in_channels=10, out_channels=3):
         super().__init__()
 
         # Encoder
@@ -62,7 +62,7 @@ class UNet(nn.Module):
 
 #to test
 if __name__ == "__main__":
-    model = UNet(in_channels=12)
-    x = torch.randn(1, 12, 200, 200)
+    model = UNet(in_channels=10)
+    x = torch.randn(1, 10, 200, 200)
     y = model(x)
-    print(y.shape)  #it should be [1, 3, 200, 200]
+    print(y.shape)  # [1, 3, 200, 200]
