@@ -2,8 +2,10 @@ import os
 import sys
 import json
 import torch
+import numpy as np
 from torch.utils.data import DataLoader, Subset
 from torchvision.utils import save_image
+from skimage.color import rgb2lab
 
 SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
@@ -21,6 +23,20 @@ from utils.metrics import psnr, ssim
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print("Using device:", device)
+
+#delta E helper
+def delta_e(pred, gt):
+    """
+    pred, gt: torch tensors in [0,1], shape (1,3,H,W)
+    returns mean ΔE for one image
+    """
+    pred_np = pred.squeeze(0).permute(1, 2, 0).cpu().numpy()
+    gt_np   = gt.squeeze(0).permute(1, 2, 0).cpu().numpy()
+
+    pred_lab = rgb2lab(pred_np)
+    gt_lab   = rgb2lab(gt_np)
+
+    return np.mean(np.linalg.norm(pred_lab - gt_lab, axis=2))
 
 #load dataset (val or test)(full)
 dataset = DenoisingDataset(
@@ -65,6 +81,7 @@ os.makedirs(img_dir, exist_ok=True)
 # Evaluation
 psnr_vals = []
 ssim_vals = []
+delta_e_vals = []
 
 with torch.no_grad():
     for idx, (x, y) in enumerate(loader):
@@ -75,19 +92,26 @@ with torch.no_grad():
 
         psnr_vals.append(psnr(pred, y).item())
         ssim_vals.append(ssim(pred, y).item())
+        delta_e_vals.append(delta_e(pred, y))
 
         #save qualitative results (ALL validation samples)
+        noisy_rgb = x[:, :3, :, :].clamp(0, 1)
+
+        save_image(noisy_rgb, os.path.join(img_dir, f"{idx:03d}_noisy.png"))
         save_image(pred, os.path.join(img_dir, f"{idx:03d}_pred.png"))
         save_image(y,    os.path.join(img_dir, f"{idx:03d}_gt.png"))
 
 # Report
 mean_psnr = sum(psnr_vals) / len(psnr_vals)
 mean_ssim = sum(ssim_vals) / len(ssim_vals)
+mean_delta_e = sum(delta_e_vals) / len(delta_e_vals)
 
 print(f"PSNR: {mean_psnr:.2f}")
 print(f"SSIM: {mean_ssim:.4f}")
+print(f"ΔE:     {mean_delta_e:.2f}")
 
 metrics_path = os.path.join(RESULTS_DIR, "metrics.txt")
 with open(metrics_path, "w") as f:
     f.write(f"PSNR: {mean_psnr:.2f}\n")
     f.write(f"SSIM: {mean_ssim:.4f}\n")
+    f.write(f"DeltaE: {mean_delta_e:.2f}\n")
