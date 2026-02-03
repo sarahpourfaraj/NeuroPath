@@ -11,99 +11,97 @@ from datasets.denoising_dataset import DenoisingDataset
 from models.unet import UNet
 from utils.losses import DenoisingLoss
 
-#config
-BATCH_SIZE = 4
-EPOCHS = 50
-LR = 1e-4
-VAL_RATIO = 0.1
-SAVE_DIR = os.path.join(os.path.dirname(__file__), "../../checkpoints")
+def main():
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print("Using device:", device)
 
-os.makedirs(SAVE_DIR, exist_ok=True)
+    #dataset
+    dataset = DenoisingDataset(
+        root_dir=os.path.join(os.path.dirname(__file__), "../../data"),
+        use_albedo=True,
+        use_normal=True,
+        use_depth=True
+    )
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-print("Using device:", device)
+    #Split: 90% train / 10% val
+    val_size = max(1, int(0.1 * len(dataset)))
+    train_size = len(dataset) - val_size
+    train_ds, val_ds = random_split(dataset, [train_size, val_size])
 
-# Dataset + Split
-dataset = DenoisingDataset(
-    root_dir=os.path.join(os.path.dirname(__file__), "../../data"),
-    use_albedo=True,
-    use_normal=True,
-    use_depth=True
-)
+    #dataloaders
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=2,
+        shuffle=True,
+        num_workers=0,      #critical for windows!
+        pin_memory=False
+    )
 
-val_size = int(len(dataset) * VAL_RATIO)
-train_size = len(dataset) - val_size
+    val_loader = DataLoader(
+        val_ds,
+        batch_size=2,
+        shuffle=False,
+        num_workers=0,
+        pin_memory=False
+    )
 
-train_set, val_set = random_split(dataset, [train_size, val_size])
+    # Model / Loss / Optimizer
+    model = UNet(in_channels=10, out_channels=3).to(device)
+    criterion = DenoisingLoss(ssim_weight=0.1)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-train_loader = DataLoader(
-    train_set,
-    batch_size=BATCH_SIZE,
-    shuffle=True,
-    num_workers=2,
-    pin_memory=True
-)
+    #training
+    num_epochs = 30
+    best_val = float("inf")
 
-val_loader = DataLoader(
-    val_set,
-    batch_size=1,
-    shuffle=False
-)
+    for epoch in range(num_epochs):
+        #Train
+        model.train()
+        train_loss = 0.0
 
-# Model / Loss / Optimizer
-model = UNet(in_channels=10, out_channels=3).to(device)
-criterion = DenoisingLoss(ssim_weight=0.1)
-optimizer = torch.optim.Adam(model.parameters(), lr=LR)
-
-# Training Loop
-best_val_loss = float("inf")
-
-for epoch in range(1, EPOCHS + 1):
-    #Train
-    model.train()
-    train_loss = 0.0
-
-    for x, y in train_loader:
-        x = x.to(device)
-        y = y.to(device)
-
-        pred = model(x)
-        loss = criterion(pred, y)
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        train_loss += loss.item()
-
-    train_loss /= len(train_loader)
-
-    #Validation
-    model.eval()
-    val_loss = 0.0
-
-    with torch.no_grad():
-        for x, y in val_loader:
+        for x, y in train_loader:
             x = x.to(device)
             y = y.to(device)
 
             pred = model(x)
             loss = criterion(pred, y)
-            val_loss += loss.item()
 
-    val_loss /= len(val_loader)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-    print(
-        f"[Epoch {epoch:03d}] "
-        f"Train Loss: {train_loss:.6f} | "
-        f"Val Loss: {val_loss:.6f}"
-    )
+            train_loss += loss.item()
 
-    #save the best model
-    if val_loss < best_val_loss:
-        best_val_loss = val_loss
-        save_path = os.path.join(SAVE_DIR, "best_model.pth")
-        torch.save(model.state_dict(), save_path)
-        print("Best model saved")
+        train_loss /= len(train_loader)
 
-print("Training + Validation finished.")
+        #Validation
+        model.eval()
+        val_loss = 0.0
+
+        with torch.no_grad():
+            for x, y in val_loader:
+                x = x.to(device)
+                y = y.to(device)
+                pred = model(x)
+                val_loss += criterion(pred, y).item()
+
+        val_loss /= len(val_loader)
+
+        print(
+            f"Epoch [{epoch+1:03d}] | "
+            f"Train: {train_loss:.4f} | "
+            f"Val: {val_loss:.4f}"
+        )
+
+        #save the best model
+        if val_loss < best_val:
+            best_val = val_loss
+            torch.save(model.state_dict(), "best_model.pth")
+            print("Best model saved")
+
+    print("Training finished.")
+
+
+#Entry point (CRITICAL on Windows)
+if __name__ == "__main__":
+    main()
