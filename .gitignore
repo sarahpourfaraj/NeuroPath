@@ -8,13 +8,15 @@ venv/
 
 # Data / outputs
 data/
-datasets/
 outputs/
 renders/
-*.png
-*.jpg
 
 # Models
+*.pt
+*.pth
+*.onnx
+
+# Model weights
 *.pt
 *.pth
 *.onnx
