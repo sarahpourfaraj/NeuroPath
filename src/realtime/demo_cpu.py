@@ -19,6 +19,7 @@ WIDTH = 128
 HEIGHT = 128
 SPP = 1
 MAX_DEPTH = 3
+DISPLAY_SCALE = 4
 
 DEVICE = "cpu"
 CKPT_PATH = os.path.join(PROJECT_DIR, "checkpoints", "unet_aovs_best.pth")
@@ -82,8 +83,13 @@ while True:
     den_vis   = (denoised * 255).astype(np.uint8)
 
     combined = np.hstack([noisy_vis, den_vis])
+    combined = cv2.resize(
+        combined,
+        (combined.shape[1] * DISPLAY_SCALE,
+         combined.shape[0] * DISPLAY_SCALE),
+        interpolation=cv2.INTER_NEAREST
+    )
     combined = cv2.cvtColor(combined, cv2.COLOR_RGB2BGR)
-    combined = cv2.resize(combined, (WIDTH * 2, HEIGHT))
 
     render_ms = (t_render - t_start) * 1000
     denoise_ms = (t_denoise - t_render) * 1000
@@ -110,10 +116,15 @@ while True:
         1
     )
 
+    cv2.namedWindow(
+    "CPU Real-Time Ray Tracing Denoising",
+    cv2.WINDOW_NORMAL
+    )
     cv2.imshow("CPU Real-Time Ray Tracing Denoising", combined)
 
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
+    
 cv2.destroyAllWindows()
 print("Demo finished.")
