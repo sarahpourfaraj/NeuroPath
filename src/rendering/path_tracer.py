@@ -33,7 +33,7 @@ def random_scene():
         center = [
             np.random.uniform(-1.2, 1.2),
             np.random.uniform(-0.6, 0.6),
-            np.random.uniform(-3.0, -6.0),
+            np.random.uniform(-6.0, -3.0),
         ]
         radius = np.random.uniform(0.4, 1.0)
         color = np.random.uniform(0.2, 1.0, size=3)
@@ -94,7 +94,7 @@ def radiance(ray_origin, ray_dir, depth, spheres, env_light):
     new_dir = random_hemisphere(normal)
     new_origin = hit + normal * EPS
 
-    return obj.color * radiance(
+    return obj.color * radiance(        # we are just focusing on denoising for now / will be updated for cornell to see real GI
         new_origin, new_dir, depth - 1, spheres, env_light
     )
 
@@ -121,7 +121,7 @@ def render_with_scene(
                 obj, t = intersect_scene(cam_origin, ray_dir, spheres)
 
                 if aov == "depth":
-                    val = 1.0 if t is None else t
+                    val = 0.0 if t is None else np.clip(t / 6.0, 0, 1)
                     col += np.array([val, val, val])
 
                 elif aov == "normal" and obj is not None:
