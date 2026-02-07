@@ -30,3 +30,5 @@ results/
 .DS_Store
 Thumbs.db
 
+# debug
+src/rendering/debug_show_scenes.py
